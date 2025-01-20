@@ -11,6 +11,22 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+// 1. Define the triangle vertices
+struct FVertexSimple
+{
+	float x, y, z;		// Position	
+	float r, g, b, a;		// Color
+};
+
+// 삼각형을 하드 코딩
+FVertexSimple triangle_vertices[] =
+{
+	{  0.0f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top vertex (red)
+	{  1.0f, -1.0f, 0.0f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right vertex (green)
+	{ -1.0f, -1.0f, 0.0f,  0.0f, 0.0f, 1.0f, 1.0f }  // Bottom-left vertex (blue)
+
+};
+
 class URenderer
 {
 public:
@@ -169,6 +185,92 @@ public:
 	{
 		SwapChain->Present(1, 0); // 1 : Vsync 활성화, 0 : Vsync 비활성화
 	}
+
+public :
+	// 기존 Urnderer Class 에 추가된 함수들
+
+	ID3D11VertexShader* SimpleVertexShader;
+	ID3D11PixelShader* SimplePixelShader;
+	ID3D11InputLayout* SimpleInputLayout;
+	unsigned int Stride;
+
+	void CreateShader()
+	{
+		ID3DBlob* vertexshaderCSO;
+		ID3DBlob* pixelshaderCSO;
+
+		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexshaderCSO, nullptr);
+
+		Device->CreateVertexShader(vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), nullptr, &SimpleVertexShader);
+
+		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelshaderCSO, nullptr);
+
+		Device->CreatePixelShader(pixelshaderCSO->GetBufferPointer(), pixelshaderCSO->GetBufferSize(), nullptr, &SimplePixelShader);
+
+		D3D11_INPUT_ELEMENT_DESC layout[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		};
+
+		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), &SimpleInputLayout);
+
+		Stride = sizeof(FVertexSimple);
+
+		vertexshaderCSO->Release();
+		pixelshaderCSO->Release();
+	}
+
+	void ReleaseShader()
+	{
+		if (SimpleInputLayout)
+		{
+			SimpleInputLayout->Release();
+			SimpleInputLayout = nullptr;
+		}
+
+		if (SimplePixelShader)
+		{
+			SimplePixelShader->Release();
+			SimpleInputLayout = nullptr;
+		}
+
+		if (SimpleVertexShader)
+		{
+			SimpleVertexShader->Release();
+			SimpleVertexShader = nullptr;
+		}
+	}
+
+
+	// Urenderer Class에 아래 함수를 추가합니다.
+	void Prepare()
+	{
+		DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
+
+		DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		DeviceContext->RSSetViewports(1, &ViewportInfo);
+		DeviceContext->RSSetState(RasterizerState);
+
+		DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, nullptr);
+		DeviceContext->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	}
+
+	void PrepareShader()
+	{
+		DeviceContext->VSSetShader(SimpleVertexShader, nullptr, 0);
+		DeviceContext->PSSetShader(SimplePixelShader, nullptr, 0);
+		DeviceContext->IASetInputLayout(SimpleInputLayout);
+	}
+
+	void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
+	{
+		UINT offset = 0;
+		DeviceContext->IASetVertexBuffers(0, 1, &pBuffer, &Stride, &offset);
+
+		DeviceContext->Draw(numVertices, 0);
+	}
 };
 
 
@@ -199,7 +301,7 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	WCHAR Title[] = L"Game Tech Lab";
 
 	// 각종 메세지를 처리할 함수인 WndProc의 함수 포인터를 WindowClass 구조체에 넣는다.
-	WNDCLASSW wndclass = { 0,  WndProc, 0, 0, 0, 0, 0, 0, WindowClass };
+	WNDCLASSW wndclass = { 0,  WndProc, 0, 0, 0, 0, 0, 0, 0, WindowClass };
 
 	// 윈도우 클래스 등록
 	RegisterClassW(&wndclass);
@@ -215,9 +317,29 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// D3D11 생성하는 함수를 호출합니다.
 	renderer.Create(hWnd);
 
+	// 렌더러 생성 직후에 쉐이더를 생성하는 함수를 호출합니다.
+	renderer.CreateShader();
+
+
+	// Renderere와 Shader 생성 이후에 버텍스 버퍼를 생성합니다.
+	FVertexSimple* vertices = triangle_vertices;
+	UINT ByteWidth = sizeof(triangle_vertices);
+	UINT numVertices = sizeof(triangle_vertices) / sizeof(FVertexSimple);
+
 	bool bIsExit = false;
 
 	//각종 생성하는 코드를 여기에 추가합니다.
+	// 생성
+	D3D11_BUFFER_DESC vertexbufferdesc = {};
+	vertexbufferdesc.ByteWidth = ByteWidth;
+	vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;
+	vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+	D3D11_SUBRESOURCE_DATA vertexbufferSRD = { vertices };
+
+	ID3D11Buffer* vertexBuffer;
+
+	renderer.Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD, &vertexBuffer);
 
 	// Main Loop (Quit Message가 들어오기 전까지 아래 Loop를 무한히 실행하게 됨)
 	while (bIsExit == false)
@@ -229,7 +351,7 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			// 키 입력 메세지를 번역
 			TranslateMessage(&msg);
-
+			
 			// 메세지를 적절한 윈도우 프로시저에 전달, 메세지가 위에서 등록한 WndProc 으로 전달
 			DispatchMessage(&msg);
 
@@ -244,13 +366,28 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		////////////////////////////////////////////////
 		// 매번 실행되는 코드를 여기에 추가합니다.
 
+		// 준비 작업
+		renderer.Prepare();
+		renderer.PrepareShader();
+
+		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
+		renderer.RenderPrimitive(vertexBuffer, numVertices);
+
+		// 다 그렸으면 버퍼를 교환
 		// 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환합니다.
 		renderer.SwapBuffer();
 		////////////////////////////////////////////////
 	}
 
-	// 소멸하는 코드를 여기에 추가합니다.
-	renderer.SwapBuffer();
+	// 버텍스 버퍼 소멸은 Renderer 소멸전에 처리합니다.
+	vertexBuffer->Release();
 	
+	// 렌더러 소멸 직전에 쉐이더를 소멸시키는 함수를 호출합니다.
+	renderer.ReleaseShader();
+
+	// 소멸하는 코드를 여기에 추가합니다.
+	renderer.Release();
+	
+
 	return 0;
 }
