@@ -11,12 +11,20 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_internal.h"
+#include "ImGui/imgui_impl_dx11.h"
+#include "ImGui/imgui_impl_win32.h"
+
 // 1. Define the triangle vertices
 struct FVertexSimple
 {
 	float x, y, z;		// Position	
 	float r, g, b, a;		// Color
 };
+
+// Sphere 배열을 추가합니다.
+#include "Sphere.h"
 
 // 삼각형을 하드 코딩
 FVertexSimple triangle_vertices[] =
@@ -25,6 +33,57 @@ FVertexSimple triangle_vertices[] =
 	{  1.0f, -1.0f, 0.0f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right vertex (green)
 	{ -1.0f, -1.0f, 0.0f,  0.0f, 0.0f, 1.0f, 1.0f }  // Bottom-left vertex (blue)
 
+};
+
+FVertexSimple cube_vertices[] =
+{
+	// Front face (Z+)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Bottom-left (red)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-left (yellow)
+	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-right (blue)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+
+	// Back face (Z-)
+	{ -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f, 1.0f }, // Bottom-left (cyan)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-right (magenta)
+	{  0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+
+	// Left face (X-)
+	{ -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, 1.0f }, // Bottom-left (purple)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, 1.0f, 1.0f }, // Top-left (blue)
+	{ -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, 1.0f }, // Top-right (yellow)
+	{ -0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Bottom-right (green)
+
+	// Right face (X+)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.5f, 0.0f, 1.0f }, // Bottom-left (orange)
+	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 0.0f, 0.5f, 1.0f }, // Top-left (purple)
+	{  0.5f, -0.5f,  0.5f,  0.5f, 0.5f, 0.5f, 1.0f }, // Bottom-right (gray)
+	{  0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.5f, 1.0f }, // Top-right (dark blue)
+
+	// Top face (Y+)
+	{ -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.5f, 1.0f }, // Bottom-left (light green)
+	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+	{ -0.5f,  0.5f,  0.5f,  0.0f, 0.5f, 1.0f, 1.0f }, // Top-left (cyan)
+	{  0.5f,  0.5f,  0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Top-right (brown)
+	{  0.5f,  0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 1.0f }, // Bottom-right (white)
+
+	// Bottom face (Y-)
+	{ -0.5f, -0.5f, -0.5f,  0.5f, 0.5f, 0.0f, 1.0f }, // Bottom-left (brown)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
+	{ -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, 1.0f }, // Top-left (red)
+	{  0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 1.0f }, // Top-right (green)
+	{  0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.5f, 1.0f }, // Bottom-right (purple)
 };
 
 class URenderer
@@ -41,7 +100,7 @@ public:
 	ID3D11RasterizerState* RasterizerState = nullptr; // 래스터라이저 상태(컬링, 채우기 모드 등 정의)
 	ID3D11Buffer* ConstantBuffer = nullptr; // 쉐이더에 데이터를 전할하기 위한 상수 버퍼
 
-	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.0025f, 1.0f }; // 화면을 초기화(clear)할 때 사용할 색상 (RGBA)
+	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f }; // 화면을 초기화(clear)할 때 사용할 색상 (RGBA)
 	D3D11_VIEWPORT ViewportInfo; // 렌더링 영역을 정희하는 뷰포트 정보
 
 public:
@@ -273,10 +332,16 @@ public :
 	}
 };
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // 각종 메세지를 처리할 함수
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+	{
+		return true;
+	}
+
 	switch (message)
 	{
 	case WM_DESTROY:
@@ -289,8 +354,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 
 	return 0;
-}
-
+};
 
 int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -320,11 +384,42 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 렌더러 생성 직후에 쉐이더를 생성하는 함수를 호출합니다.
 	renderer.CreateShader();
 
+	// 여기에서 ImGui를 생성합니다.
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplWin32_Init((void*)hWnd);
+	ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
 
+	// 실습2 마지막장에서 삼각형을 그릴 때 버텍스 버퍼 생성 하는 부분을 아래와 같이 수정합니다.
+	// Vertex 배열 변수 이름이 triangle_vertices에서 cube_vertices로 변경되었습니다.
+
+/*
 	// Renderere와 Shader 생성 이후에 버텍스 버퍼를 생성합니다.
 	FVertexSimple* vertices = triangle_vertices;
 	UINT ByteWidth = sizeof(triangle_vertices);
 	UINT numVertices = sizeof(triangle_vertices) / sizeof(FVertexSimple);
+*/
+
+
+	//// Cube vertices에 관한 정보를 수정합니다.
+	//FVertexSimple* vertices = cube_vertices;
+	//UINT ByteWidth = sizeof(cube_vertices);
+	//UINT numVertices = sizeof(cube_vertices) / sizeof(FVertexSimple);
+
+
+	FVertexSimple* vertices = sphere_vertices;
+	UINT ByteWidth = sizeof(sphere_vertices);
+	UINT numVertices = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+
+	float scaleMod = 0.1f;
+
+	for (UINT i = 0; i < numVertices; ++i)
+	{
+		sphere_vertices[i].x *= scaleMod;
+		sphere_vertices[i].y *= scaleMod;
+		sphere_vertices[i].z *= scaleMod;
+	}
 
 	bool bIsExit = false;
 
@@ -373,11 +468,36 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
 		renderer.RenderPrimitive(vertexBuffer, numVertices);
 
+		ImGui_ImplDX11_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+
+		// 이후 ImGui Ui 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render() 사이인 여기에 위치합니다.
+		ImGui::Begin("Jungle Property Window");
+		
+		ImGui::Text("Hello, Jungle!");
+
+		if (ImGui::Button("Quit this app")) 
+		{
+			// 현재 윈도우에 Quit 메세지를 메세지 큐로 보냄
+			PostMessage(hWnd, WM_QUIT, 0, 0);
+		}
+
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
 		// 다 그렸으면 버퍼를 교환
 		// 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환합니다.
 		renderer.SwapBuffer();
 		////////////////////////////////////////////////
 	}
+
+	// 여기에서 ImGui를 해제합니다.
+	ImGui_ImplDX11_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 
 	// 버텍스 버퍼 소멸은 Renderer 소멸전에 처리합니다.
 	vertexBuffer->Release();
