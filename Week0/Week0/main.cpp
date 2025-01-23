@@ -24,10 +24,10 @@ struct FVertexSimple
 };
 
 // Structure for a 3D vector
-struct FVector
+struct FVector3
 {
 	float x, y, z;
-	FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) {}
+	FVector3(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) {}
 };
 
 // Sphere 배열을 추가합니다.
@@ -328,6 +328,13 @@ public :
 		DeviceContext->VSSetShader(SimpleVertexShader, nullptr, 0);
 		DeviceContext->PSSetShader(SimplePixelShader, nullptr, 0);
 		DeviceContext->IASetInputLayout(SimpleInputLayout);
+
+		// 여기에 추가하세요.
+		// 버텍스 쉐이더에 상수 버퍼를 설정합니다.
+		if (ConstantBuffer)
+		{
+			DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
+		}
 	}
 
 	void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
@@ -359,6 +366,46 @@ public :
 		}
 	}
 
+	struct FConstantBuffer
+	{
+		FVector3 Offset;
+		float Pad;
+	};
+	
+	void CreateConstantBuffer()
+	{
+		D3D11_BUFFER_DESC constantbufferdesc = {};
+		constantbufferdesc.ByteWidth = sizeof(FConstantBuffer) + 0xf & 0xfffffff0; // ensure constant buffer size is 16-byte
+		constantbufferdesc.Usage = D3D11_USAGE_DYNAMIC; // will be updated from CPU every frame
+		constantbufferdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		constantbufferdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+
+		Device->CreateBuffer(&constantbufferdesc, nullptr, &ConstantBuffer);
+	}
+
+	void ReleaseConstantBuffer()
+	{
+		if (ConstantBuffer)
+		{
+			ConstantBuffer->Release();
+			ConstantBuffer = nullptr;
+		}
+	}
+
+	void UpdateConstant(FVector3 Offset)
+	{
+		if (ConstantBuffer)
+		{
+			D3D11_MAPPED_SUBRESOURCE constantbufferMSR;
+
+			DeviceContext->Map(ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantbufferMSR); // update constant buffer every frame
+			FConstantBuffer* constants = (FConstantBuffer*)constantbufferMSR.pData;
+			{
+				constants->Offset = Offset;
+			}
+			DeviceContext->Unmap(ConstantBuffer, 0);
+		}
+	}
 };
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -412,6 +459,9 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	// 렌더러 생성 직후에 쉐이더를 생성하는 함수를 호출합니다.
 	renderer.CreateShader();
+	// 여기에 생성 함수를 추가합니다.
+	renderer.CreateConstantBuffer();
+
 
 	// 여기에서 ImGui를 생성합니다.
 	IMGUI_CHECKVERSION();
@@ -454,6 +504,9 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 생성
 	ETypePrimitive typePrimitive = EPT_Triangle;
 
+	// 도형의 움직임 정도를 담을 offset 변수를 Main 루프 바로 앞에 정의 하세요.
+	FVector3 offset(0.0f);
+
 	// Main Loop (Quit Message가 들어오기 전까지 아래 Loop를 무한히 실행하게 됨)
 	while (bIsExit == false)
 	{
@@ -473,6 +526,27 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				bIsExit = true;
 				break;
 			}
+			else if (msg.message == WM_KEYDOWN) // 키보드 눌렀을 때
+			{
+				// 눌린 키가 방향키라면 해당 방향에 맞춰서
+				// offset 변수의 x,y 멤버 변수의 값을 조정합니다.
+				if (msg.wParam == VK_LEFT)
+				{
+					offset.x -= 0.01f;
+				}
+				else if (msg.wParam == VK_RIGHT)
+				{
+					offset.x += 0.01f;
+				}
+				else if (msg.wParam == VK_UP)
+				{
+					offset.y += 0.01f;
+				}
+				else if (msg.wParam == VK_DOWN)
+				{
+					offset.y -= 0.01f;
+				}
+			}
 		}
 
 
@@ -486,6 +560,9 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// 아래 코드는 삭제합니다.
 		// 생성한 버텍스 버퍼를 넘겨 실질적인 렌더링 요청
 		//renderer.RenderPrimitive(vertexBuffer, numVertices);
+
+		// offset을 상수 버퍼로 업데이트 합니다.
+		renderer.UpdateConstant(offset);
 
 		switch (typePrimitive)
 		{
@@ -556,6 +633,9 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	renderer.ReleaseVertexBuffer(vertexBufferTriangle);
 	renderer.ReleaseVertexBuffer(vertexBufferCube);
 	renderer.ReleaseVertexBuffer(vertexBufferSphere);
+
+	// ReleaseShader() 직전에 소멸 함수를 추가합니다.
+	renderer.ReleaseConstantBuffer();
 
 	// 렌더러 소멸 직전에 쉐이더를 소멸시키는 함수를 호출합니다.
 	renderer.ReleaseShader();
