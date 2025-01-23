@@ -369,6 +369,7 @@ public :
 	struct FConstantBuffer
 	{
 		FVector3 Offset;
+		// 여기에 추가합니다.
 		float Pad;
 	};
 	
@@ -502,14 +503,50 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	//각종 생성하는 코드를 여기에 추가합니다.
 	// 생성
-	ETypePrimitive typePrimitive = EPT_Triangle;
+	//ETypePrimitive typePrimitive = EPT_Triangle;
+	ETypePrimitive typePrimitive = EPT_Sphere;
 
 	// 도형의 움직임 정도를 담을 offset 변수를 Main 루프 바로 앞에 정의 하세요.
 	FVector3 offset(0.0f);
+	// 여기에 추가합니다.
+	FVector3 velocity(0.0f);
+
+	const float leftBorder = -1.0f;
+	const float rightBorder = 1.0f;
+	const float topBorder = -1.0f;
+	const float bottomBorder = 1.0f;
+	const float sphereRadius = 1.0f;
+
+	bool bBoundBallToScreen = true;
+	// 여기에 추가합니다.
+	bool bPinballMovement = true;
+	// 여기에 추가합니다.
+	const float ballSpeed = 0.001f;
+	velocity.x = ((float)(rand() % 100 - 50)) * ballSpeed;
+	velocity.y = ((float)(rand() % 100 - 50)) * ballSpeed;
+	// 여기에 추가합니다.
+	
+
+	// FPS 제한을 위한 설정
+	const int targetFPS = 30;
+	const double targetFrameTime = 1000.0 / targetFPS; // 한 프레임의 목표 시간 (밀리초 단위)
+
+
+	// 고성능 타이머 초기화
+	LARGE_INTEGER frequency;
+	QueryPerformanceFrequency(&frequency);
+
+	LARGE_INTEGER startTime, endTime;
+	double elapsedTime = 0.0;
 
 	// Main Loop (Quit Message가 들어오기 전까지 아래 Loop를 무한히 실행하게 됨)
+	// Quit Message가 들어오기 전까지 아래 Loop를 무한히 실행하게 됨
 	while (bIsExit == false)
 	{
+		// 여기에 추가합니다.
+		// 루프 시작 시간 기록
+		QueryPerformanceCounter(&startTime);
+
 		MSG msg;
 
 		// 처리할 메세지가 더 이상 없을때 까지 수행
@@ -546,9 +583,59 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				{
 					offset.y -= 0.01f;
 				}
+				// 여기에 추가합니다.
+				// 키보드 처리 직후에 하면 밖을 벗어났다면 화면 안쪽으로 위치시킨다.
+				// 화면을 벗어나지 않아야 한다면
+				if (bBoundBallToScreen)
+				{
+					float renderRadius = sphereRadius * scaleMod;
+					if (offset.x < leftBorder + renderRadius)
+					{
+						offset.x = leftBorder + renderRadius;
+					}
+					if (offset.x > rightBorder - renderRadius)
+					{
+						offset.x = rightBorder - renderRadius;
+					}
+					if (offset.y < topBorder + renderRadius)
+					{
+						offset.y = topBorder + renderRadius;
+					}
+					if (offset.y > bottomBorder - renderRadius)
+					{
+						offset.y = bottomBorder - renderRadius;
+					}
+				}
 			}
 		}
 
+		// 핀볼 움직임이 켜져 있다면
+		if (bPinballMovement)
+		{
+			// 속도를 공위치에 더해 공을 실질적으로 움직임
+			offset.x += velocity.x;
+			offset.y += velocity.y;
+			offset.z += velocity.z;
+
+			// 벽과 충돌 여부를 체크하고 충돌시 속도에 음수를 곱해 방향을 바꿈.
+			float renderRadius = sphereRadius * scaleMod;
+			if (offset.x < leftBorder + renderRadius)
+			{
+				velocity.x *= -1.0f;
+			}
+			if (offset.x > rightBorder - renderRadius)
+			{
+				velocity.x *= -1.0f;
+			}
+			if (offset.y < topBorder + renderRadius)
+			{
+				velocity.y *= -1.0f;
+			}
+			if (offset.y > bottomBorder - renderRadius)
+			{
+				velocity.y *= -1.0f;
+			}
+		}
 
 		////////////////////////////////////////////////
 		// 매번 실행되는 코드를 여기에 추가합니다.
@@ -586,6 +673,10 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		
 		ImGui::Text("Hello, Jungle!");
 
+		// Hello Jungle World 아래에 CheckBox와 bBoundBallToScreen 변수를 연결합니다.
+		ImGui::Checkbox("Bound Ball to Screen", &bBoundBallToScreen);
+		// 여기에 추가합니다.
+		ImGui::Checkbox("Pinball Movement", &bPinballMovement);
 		// 아래 코드는 삭제합니다.
 /*
 		if (ImGui::Button("Quit this app")) 
@@ -595,6 +686,9 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 */
 
+
+		// 아래 코드 Change Primitive 버튼 기능도 삭제 하세요.
+/*
 		if (ImGui::Button("Change primitive"))
 		{
 			switch (typePrimitive)
@@ -610,6 +704,7 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				break;
 			}
 		}
+*/
 
 		ImGui::End();
 
@@ -620,6 +715,19 @@ int	WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// 현재 화면에 보여지는 버퍼와 그리기 작업을 위한 버퍼를 서로 교환합니다.
 		renderer.SwapBuffer();
 		////////////////////////////////////////////////
+
+		// 여기에 추가합니다.
+		do
+		{
+			Sleep(0);
+
+			// 루프 종료 시간 기록
+			QueryPerformanceCounter(&endTime);
+
+			// 한 프레임이 소요한 시간 계산 (밀리초 단위로 변환)
+			elapsedTime = (endTime.QuadPart - startTime.QuadPart) * 1000.0 / frequency.QuadPart;
+
+		} while (elapsedTime < targetFrameTime);
 	}
 
 	// 여기에서 ImGui를 해제합니다.
