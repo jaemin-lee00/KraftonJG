@@ -1,2 +1,11 @@
-﻿  main.cpp
-  Week0.vcxproj -> C:\Users\Admin\source\repos\KraftonJG\Week0\x64\Debug\Week0.exe
+﻿  imgui.cpp
+  imgui_demo.cpp
+  imgui_draw.cpp
+  imgui_impl_dx11.cpp
+  imgui_impl_win32.cpp
+  imgui_tables.cpp
+  imgui_widgets.cpp
+  main.cpp
+  코드를 생성하고 있습니다...
+  LINK : C:\Users\JAEMIN LEE\OneDrive - 계명대학교\문서\GitHub\KraftonJG\Week0\x64\Debug\Week0.exe을(를) 찾을 수 없거나 마지막 증분 링크에 의해 빌드되지 않았습니다. 전체 링크를 수행하고 있습니다.
+  Week0.vcxproj -> C:\Users\JAEMIN LEE\OneDrive - 계명대학교\문서\GitHub\KraftonJG\Week0\x64\Debug\Week0.exe
