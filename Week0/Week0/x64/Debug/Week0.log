@@ -1,0 +1,4 @@
+﻿  main.cpp
+C:\Users\JAEMIN LEE\OneDrive - 계명대학교\바탕 화면\Week0\Week0\main.cpp(75,14): warning C4244: 'return': 'double'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\JAEMIN LEE\OneDrive - 계명대학교\바탕 화면\Week0\Week0\main.cpp(1307,38): warning C4018: '>': signed 또는 unsigned가 일치하지 않습니다.
+  Week0.vcxproj -> C:\Users\JAEMIN LEE\OneDrive - 계명대학교\바탕 화면\Week0\x64\Debug\Week0.exe
